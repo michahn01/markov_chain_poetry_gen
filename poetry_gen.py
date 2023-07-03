@@ -13,34 +13,32 @@ def read_poems(file_path):
     return txt
 
 
-# cleans text and classifies words by their parts of speech
 def parse_txt(txt):
     cleaned_txt = []
-    nouns = set()
-    verbs = set()
-    adj = set()
     for line in txt:
         line = line.lower()
         line = re.sub(r"[,.\"\'!@#$%^&*(){}?/;`~:<>+=-\\]", "", line)
         tokens = word_tokenize(line)
         words = [word for word in tokens if word.isalpha()]
-        tagged_words = pos_tag(words)
-        for word in tagged_words:
-            if word[1] == "NN":
-                nouns.add(word[0])
-            elif word[1] == "VB" or word[1] == "VBP":
-                verbs.add(word[0])
-            elif word[1] == "JJ":
-                adj.add(word[0])
         cleaned_txt += words
-    return cleaned_txt, nouns, verbs, adj
+    return cleaned_txt
 
 # creates a Markov model
 def make_markov_model(cleaned_stories):
     markov_model = {}
+    nouns = set()
+    verbs = set()
+    adj = set()
     for i in range(len(cleaned_stories) - 1):
         current_state = cleaned_stories[i]
         next_state = cleaned_stories[i+1]
+        word = pos_tag([cleaned_stories[i]])
+        if word[0][1] == "NN":
+            nouns.add(word[0][0])
+        elif word[0][1] == "VB" or word[0][1] == "VBP":
+            verbs.add(word[0][0])
+        elif word[0][1] == "JJ":
+            adj.add(word[0][0])
         if current_state in markov_model:
             if next_state in markov_model[current_state]:
                 markov_model[current_state][next_state] += 1
@@ -48,6 +46,13 @@ def make_markov_model(cleaned_stories):
                 markov_model[current_state][next_state] = 1
         else:
             markov_model[current_state] = { next_state : 1 }
+    word = pos_tag([cleaned_stories[len(cleaned_stories) - 1]])
+    if word[0][1] == "NN":
+        nouns.add(word[0][0])
+    elif word[0][1] == "VB" or word[0][1] == "VBP":
+        verbs.add(word[0][0])
+    elif word[0][1] == "JJ":
+        adj.add(word[0][0])
         
         
     for current_state, next_states in markov_model.items():
@@ -55,7 +60,7 @@ def make_markov_model(cleaned_stories):
         for next_state, count in next_states.items():
             markov_model[current_state][next_state] = count / total_sum
 
-    return markov_model
+    return markov_model, nouns, verbs, adj
 
 def generate_line(nouns, verbs, adj, markov_model, is_last_line=False):
     curr = random.choice(list(nouns))
@@ -81,8 +86,8 @@ def generate_poem(num_lines, nouns, verbs, adj, markov_model):
     generate_line(nouns, verbs, adj, markov_model, True)
 
 
-data, nouns, verbs, adj = parse_txt(read_poems("training_data/poems.txt"))
-markov_model = make_markov_model(data)
+data = parse_txt(read_poems("training_data/poems.txt"))
+markov_model, nouns, verbs, adj = make_markov_model(data)
 
 generate_poem(5, nouns, verbs, adj, markov_model)
 
